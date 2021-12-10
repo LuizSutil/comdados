@@ -5,8 +5,8 @@
 #include <MFRC522.h>
 
 
-constexpr uint8_t RST_PIN =  0;          // Configurable, see typical pin layout above 18
-constexpr uint8_t SS_PIN =  15;         // Configurable, see typical pin layout above  16
+constexpr uint8_t RST_PIN =  D3;          // Configurable, see typical pin layout above 18
+constexpr uint8_t SS_PIN =  D8;         // Configurable, see typical pin layout above  16
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
 // Update these with values suitable for your network.
@@ -25,6 +25,8 @@ char msg[MSG_BUFFER_SIZE];
 int value = 0;
 
 void setup() {
+   Serial.println("Setup");
+
   pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
   Serial.begin(115200);
 
@@ -96,43 +98,54 @@ void reconnect() {
 
 void loop() {
 
+       // Look for new cards
+      if ( ! mfrc522.PICC_IsNewCardPresent()) {
+        delay(50);
+        return;
+      }
+    
+      // Select one of the cards
+      if ( ! mfrc522.PICC_ReadCardSerial()) {
+        delay(50);
+        return;
+        }
+
    String content= "";
-  byte letter;
-  // Look for new cards
-  if ( ! mfrc522.PICC_IsNewCardPresent()) {
-    //delay(50);
-    return;
-  }
 
-  // Select one of the cards
-  if ( ! mfrc522.PICC_ReadCardSerial()) {
-    //delay(50);
-    return;
-  }
-
-  
   if (!client.connected()) {
     reconnect();
   }
   client.loop();
   unsigned long now = millis();
-  if (now - lastMsg > 2000) {
-       for (byte i = 0; i < mfrc522.uid.size; i++) 
+  if (now - lastMsg > 6000) {
+    
+         for (byte i = 0; i < mfrc522.uid.size; i++) 
+          {
+    
+             content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+             content.concat(String(mfrc522.uid.uidByte[i], HEX));
+          }
+          content.toUpperCase();
+              byte letter;
+         
+       
+        if (content.substring(1) == "67 A8 96 60") //change here the UID of the card/cards that you want to give access
         {
-           Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-           Serial.print(mfrc522.uid.uidByte[i], HEX);
-           content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
-           content.concat(String(mfrc522.uid.uidByte[i], HEX));
-        }
-        Serial.println();
-        Serial.print("Message : ");
-        content.toUpperCase();
-        if (content.substring(1) == "BD 31 15 2B") //change here the UID of the card/cards that you want to give access
-        {
-          client.publish("satc/comdados", "1");
-        } else if (content.substring(1) == "4D 3A 99 C3 51 DD");
-         {
+
+         
           client.publish("satc/comdados", "0");
+                    
+          Serial.println(content.substring(1));
+
+          delay(1000);
+        } else
+         {
+          Serial.println(content.substring(1));
+
+          client.publish("satc/comdados", "1");
+          delay(1000);
+
         }
+
   }
 }
